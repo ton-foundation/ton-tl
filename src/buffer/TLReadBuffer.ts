@@ -32,7 +32,17 @@ export class TLReadBuffer {
         this.#ensureSize(8);
         let buff = this.#buf.slice(this.#offset, this.#offset + 8);
         this.#offset += 8;
-        return new BN(buff).toString(10);
+        let inv = false;
+        if (buff[buff.length - 1] & 128) {
+            inv = true;
+            buff[buff.length - 1] = buff[buff.length - 1] & 127;
+        }
+        let base = new BN(buff, 'le');
+        if (inv) {
+            return base.sub(new BN(Buffer.from([0, 0, 0, 0, 0, 0, 0, 128]), 'le')).toString(10);
+        } else {
+            return base.toString(10);
+        }
     }
 
     readUInt8() {

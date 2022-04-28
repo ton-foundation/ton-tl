@@ -23,12 +23,26 @@ export class TLWriteBuffer {
     }
 
     writeInt64(val: string) {
-        let hex = new BN(val, 10).toString('hex');
-        while (hex.length < 16) {
-            hex = '0' + hex;
+        let src = new BN(val, 10);
+        let neg = src.isNeg();
+        if (neg) {
+            src = src.add(new BN(Buffer.from([0, 0, 0, 0, 0, 0, 0, 128]), 'le'));
+        }
+        let buf = src.toBuffer('le');
+        while (buf.length < 8) {
+            buf = Buffer.concat([buf, Buffer.from([0])]);
+        }
+        if (buf.length > 8) {
+            throw new Error('Invalid value');
+        }
+        if (buf[buf.length - 1] & 128) {
+            throw new Error('Invalid value');
+        }
+        if (neg) {
+            buf[buf.length - 1] = buf[buf.length - 1] + 128;
         }
         this.#ensureSize(8);
-        this.#buf.set(Buffer.from(hex, 'hex'), this.#used);
+        this.#buf.set(buf, this.#used);
         this.#used += 8;
     }
 
