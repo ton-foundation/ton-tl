@@ -2,7 +2,7 @@ export {
     TLLong,
     TLInt,
     TLBytes,
-    TLType,
+    TLConstructor,
     TLFlag,
     TLBool,
     TLString,

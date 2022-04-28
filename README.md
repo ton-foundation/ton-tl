@@ -2,7 +2,12 @@
 
 [![Version npm](https://img.shields.io/npm/v/ton-tl.svg?logo=npm)](https://www.npmjs.com/package/ton-tl)
 
-TL implementation for TON
+Implementation of subset of TL language that is used in TON.
+
+## Features
+- 🔧 Basic types and functions serializations
+- 👀 Flags support
+- 🌻 Typescript
 
 # License
 

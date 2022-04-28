@@ -1,4 +1,5 @@
-import { TLType } from "../types"
+import { BN } from "bn.js";
+import { TLConstructor } from "../types";
 
 export class TLWriteBuffer {
     #used = 0
@@ -18,13 +19,17 @@ export class TLWriteBuffer {
 
     writeUInt32(val: number) {
         this.#ensureSize(4);
-        this.#buf.writeInt32LE(val, this.#used);
+        this.#buf.writeUInt32LE(val, this.#used);
         this.#used += 4;
     }
 
-    writeInt64(val: bigint) {
+    writeInt64(val: string) {
+        let hex = new BN(val, 10).toString('hex');
+        while (hex.length < 16) {
+            hex = '0' + hex;
+        }
         this.#ensureSize(8);
-        this.#buf.writeBigInt64LE(val, this.#used);
+        this.#buf.set(Buffer.from(hex, 'hex'), this.#used);
         this.#used += 8;
     }
 
@@ -34,18 +39,7 @@ export class TLWriteBuffer {
         this.#used++;
     }
 
-    writeInt256Fake(val: number) {
-        this.writeUInt32(val);
-        this.writeUInt32(0);
-        this.writeUInt32(0);
-        this.writeUInt32(0);
-        this.writeUInt32(0);
-        this.writeUInt32(0);
-        this.writeUInt32(0);
-        this.writeUInt32(0);
-    }
-
-    writeInt256Buff(val: Buffer) {
+    writeInt256(val: Buffer) {
         this.#ensureSize(256 / 8)
         if (val.byteLength !== 256 / 8) {
             throw new Error('Invalid int256 length');
@@ -56,7 +50,7 @@ export class TLWriteBuffer {
         }
     }
 
-    writeBuff(buf: Buffer) {
+    writeBuffer(buf: Buffer) {
         this.#ensureSize(buf.byteLength + 4);
         let len = 0;
         if (buf.byteLength <= 253) {
@@ -78,10 +72,19 @@ export class TLWriteBuffer {
         }
     }
 
-    writeType(type: TLType, boxed: boolean = false) {
-        if (boxed) {
-            this.writeUInt32(type.getId());
+    writeString(src: string) {
+        this.writeBuffer(Buffer.from(src));
+    }
+
+    writeBool(src: boolean) {
+        if (src) {
+            this.writeUInt8(1);
+        } else {
+            this.writeUInt8(0);
         }
+    }
+
+    writeConstructor(type: TLConstructor) {
         type.encode(this);
     }
 

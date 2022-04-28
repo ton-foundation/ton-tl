@@ -1,6 +1,6 @@
 {
-  "name": "ton-crypto",
-  "version": "3.1.0",
+  "name": "ton-tl",
+  "version": "0.1.0",
   "repository": "https://github.com/ton-foundation/ton-tl.git",
   "author": "Steve Korshakov <steve@korshakov.com>",
   "license": "MIT",
@@ -31,7 +31,10 @@
     "webpack": "^5.51.2"
   },
   "dependencies": {
+    "@types/bn.js": "^5.1.0",
     "@types/pegjs": "^0.10.3",
+    "bn.js": "^5.2.0",
+    "case-shift": "^2.5.3",
     "crc-32": "^1.2.2",
     "pegjs": "^0.10.0"
   }

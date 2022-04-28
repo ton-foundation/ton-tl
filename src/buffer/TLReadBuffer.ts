@@ -1,3 +1,5 @@
+import BN from "bn.js";
+
 export class TLReadBuffer {
     #offset = 0;
     readonly #buf: Buffer;
@@ -21,16 +23,16 @@ export class TLReadBuffer {
 
     readUInt32() {
         this.#ensureSize(4);
-        let val = this.#buf.readInt32LE(this.#offset);
+        let val = this.#buf.readUInt32LE(this.#offset);
         this.#offset += 4;
         return val;
     }
 
     readInt64() {
         this.#ensureSize(8);
-        let val = this.#buf.readBigInt64LE(this.#offset);
+        let buff = this.#buf.slice(this.#offset, this.#offset + 8);
         this.#offset += 8;
-        return val;
+        return new BN(buff).toString(10);
     }
 
     readUInt8() {
@@ -40,21 +42,14 @@ export class TLReadBuffer {
         return val;
     }
 
-    readInt256Fake() {
-        this.#ensureSize(256 / 8);
-        let val = this.#buf.readUint32LE(this.#offset);
-        this.#offset += 256 / 8;
-        return val;
-    }
-
-    readInt256Buff() {
+    readInt256() {
         this.#ensureSize(256 / 8);
         let buff = this.#buf.slice(this.#offset, this.#offset + 256 / 8);
         this.#offset += 256 / 8;
         return buff;
     }
 
-    readBuff() {
+    readBuffer() {
         let size = 1;
         let len = this.readUInt8();
 
@@ -77,13 +72,15 @@ export class TLReadBuffer {
         return buff;
     }
 
-    readType<T extends { typeId: number, new(...args: any[]): InstanceType<T>, decode: (decoder: TLReadBuffer) => InstanceType<T> }>(type: T, boxed: boolean = false) {
-        if (boxed) {
-            let typeId = this.readUInt32()
-            if (typeId !== type.typeId) {
-                throw new Error(`Type id mismatch, expected: ${type.typeId}, got: ${typeId}`)
-            }
-        }
+    readString() {
+        return this.readBuffer().toString('utf-8');
+    }
+
+    readBool() {
+        return this.readUInt8() != 0;
+    }
+
+    readConstructor<T extends { typeId: number, new(...args: any[]): InstanceType<T>, decode: (decoder: TLReadBuffer) => InstanceType<T> }>(type: T) {
         return type.decode(this);
     }
 }

@@ -1,7 +1,8 @@
-import { CombinatorDeclaration, ETypeIdentifier, OptionalVariableIdentifier, TLProgram } from "../parser/ast";
+import { CombinatorDeclaration, ETypeIdentifier, OptionalVariableIdentifier } from "../parser/ast";
 import { parseSchema } from "../parser/parseSchema";
 import { CodeBuilder } from "./CodeBuilder";
 import * as crc from "crc-32";
+import { snakeToCamel } from 'case-shift';
 
 const BUILT_IN = [
     'false',
@@ -14,8 +15,17 @@ const BUILT_IN = [
     'int256'
 ];
 
-function normalizeName(name: string) {
+function isTypeName(name: string) {
+    let p = name.split('.');
+    let s = p[p.length - 1][0];
+    return s >= 'A' && s <= 'Z';
+}
+
+function normalizeTypeName(name: string) {
     return name.replaceAll('.', '_');
+}
+function normalizeFieldName(name: string) {
+    return snakeToCamel(name);
 }
 
 function getTypeName(id: ETypeIdentifier) {
@@ -40,62 +50,73 @@ function getTypeName(id: ETypeIdentifier) {
     if (id.id.name === 'Bool') {
         return 'TLBool';
     }
+    if (id.id.name === 'true') {
+        return 'TLBool';
+    }
+    if (id.id.name === 'false') {
+        return 'TLBool';
+    }
 
-    return normalizeName(id.id.name)
+    return normalizeTypeName(id.id.name)
 }
 
 function getEncoderFnForType(id: OptionalVariableIdentifier, type: ETypeIdentifier) {
     if (type.id.name === 'string') {
-        return `encoder.writeString(this.${id.name})`;
+        return `encoder.writeString(this.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'int256') {
-        return `encoder.writeInt256Buff(this.${id.name})`;
+        return `encoder.writeInt256(this.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'int') {
-        return `encoder.writeInt32(this.${id.name})`;
+        return `encoder.writeInt32(this.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'bytes') {
-        return `encoder.writeBuffer(this.${id.name})`;
+        return `encoder.writeBuffer(this.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'long') {
-        return `encoder.writeInt64(this.${id.name})`;
+        return `encoder.writeInt64(this.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === '#') {
-        return `encoder.writeInt32(this.${id.name})`;
+        return `encoder.writeUInt32(this.${normalizeFieldName(id.name)})`;
     }
-    return `encoder.writeType(this.${id.name})`;
+    if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
+        return `encoder.writeBool(this.${normalizeFieldName(id.name)})`;
+    }
+    return `encoder.writeConstructor(this.${normalizeFieldName(id.name)})`;
 }
 
 function getDecoderFnForType(id: OptionalVariableIdentifier, type: ETypeIdentifier) {
     if (type.id.name === 'string') {
-        return `let ${id.name} = decoder.readBuff()`
+        return `decoder.readString()`
     }
     if (type.id.name === 'int256') {
-        return `let ${id.name} = decoder.readInt256Buff()`
+        return `decoder.readInt256()`
     }
     if (type.id.name === 'int') {
-        return `let ${id.name} = decoder.readInt32()`
+        return `decoder.readInt32()`
     }
     if (type.id.name === 'bytes') {
-        return `let ${id.name} = decoder.readBuff()`
+        return `decoder.readBuffer()`
     }
     if (type.id.name === 'long') {
-        return `let ${id.name} = decoder.readInt64()`
+        return `decoder.readInt64()`
     }
     if (type.id.name === '#') {
-        return `let ${id.name} = decoder.readInt32()`
+        return `decoder.readUInt32()`
     }
-    if (type.id.name === 'Bool') {
-        return `let ${id.name} = decoder.readBool()`
+    if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
+        return `decoder.readBool()`
     }
-    return `let ${id.name} = decoder.readType(${normalizeName(type.id.name)})`
-    // throw new Error('Unknown type')
-    // return id.id.name
+    if (isTypeName(type.id.name)) {
+        return `read_${normalizeTypeName(type.id.name)}(decoder)`;
+    } else {
+        return `decoder.readConstructor(${normalizeTypeName(type.id.name)})`
+    }
 }
 
-function generateType(decl: CombinatorDeclaration, typeId: number) {
+function generateConstructor(decl: CombinatorDeclaration, typeId: number) {
     let code = new CodeBuilder()
-    code.add(`export class ${normalizeName(decl.id.name)} extends TLType {`)
+    code.add(`export class ${normalizeTypeName(decl.id.name)} extends TLConstructor {`)
     code.inTab(() => {
         code.add(`static typeId = ${typeId};`)
         code.add();
@@ -109,7 +130,12 @@ function generateType(decl: CombinatorDeclaration, typeId: number) {
             if (field.argType.expression.type !== 'ETypeIdentifier') {
                 continue
             }
-            fields.push(`public ${field.id.name}: ${getTypeName(field.argType.expression)}`)
+            let optional = !!field.conditionalDef;
+            if (optional) {
+                fields.push(`public ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)} | null`);
+            } else {
+                fields.push(`public ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)}`);
+            }
         }
 
         code.add(`constructor(${fields.join(', ')}) {`);
@@ -136,7 +162,11 @@ function generateType(decl: CombinatorDeclaration, typeId: number) {
                 if (field.argType.expression.type !== 'ETypeIdentifier') {
                     continue;
                 }
-                code.add(getEncoderFnForType(field.id, field.argType.expression));
+                if (field.conditionalDef) {
+                    code.add(`(this.${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) && !!this.${normalizeFieldName(field.id.name)} && ${getEncoderFnForType(field.id, field.argType.expression)};`);
+                } else {
+                    code.add(getEncoderFnForType(field.id, field.argType.expression) + ';');
+                }
             }
         });
         code.add('}');
@@ -153,15 +183,34 @@ function generateType(decl: CombinatorDeclaration, typeId: number) {
                 if (field.argType.expression.type !== 'ETypeIdentifier') {
                     continue
                 }
-                fs.push(field.id.name);
-                code.add(getDecoderFnForType(field.id, field.argType.expression));
+                fs.push(normalizeFieldName(field.id.name));
+                if (field.conditionalDef) {
+                    code.add(`let ${normalizeFieldName(field.id.name)} = (${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) ? ` + getDecoderFnForType(field.id, field.argType.expression) + ' : null;');
+                } else {
+                    code.add(`let ${normalizeFieldName(field.id.name)} = ` + getDecoderFnForType(field.id, field.argType.expression) + ';');
+                }
             }
-            code.add(`return new ${normalizeName(decl.id.name)}(${fs.join(', ')})`);
+            code.add(`return new ${normalizeTypeName(decl.id.name)}(${fs.join(', ')})`);
         })
         code.add('}');
 
     });
     code.add('}')
+    return code;
+}
+
+function generateType(name: string, constructors: { declaration: CombinatorDeclaration, id: number }[]) {
+    let code = new CodeBuilder();
+    code.add(`export type ${name} = ${constructors.map((v) => normalizeTypeName(v.declaration.id.name)).join(' | ')};`);
+    code.add(`const read_${normalizeTypeName(name)} = (reader: TLReadBuffer): ${name} => {`);
+    code.inTab(() => {
+        code.add(`const id = reader.readInt32();`);
+        for (let t of constructors) {
+            code.add(`if (id == ${t.id}) return reader.readConstructor(${normalizeTypeName(t.declaration.id.name)});`);
+        }
+        code.add(`throw Error('Unknown type: ' + id);`);
+    });
+    code.add('}');
     return code;
 }
 
@@ -173,10 +222,11 @@ export function generate(schema: string) {
 
     // Header
     let code = new CodeBuilder();
-    code.add('import { TLWriteBuffer, TLReadBuffer, TLType, TLFlag, TLInt, TLString, TLLong, TLInt256, TLInt128, TLBytes, TLBool } from "ton-tl";');
+    code.add('import { TLWriteBuffer, TLReadBuffer, TLConstructor, TLFlag, TLInt, TLString, TLLong, TLInt256, TLInt128, TLBytes, TLBool } from "ton-tl";');
     code.add();
 
     // Process declaration
+    let types = new Map<string, { declaration: CombinatorDeclaration, id: number }[]>();
     for (let declaration of src.constructors.declarations) {
         if (declaration.type === 'CombinatorDeclaration') {
             if (BUILT_IN.includes(declaration.id.name)) {
@@ -185,8 +235,15 @@ export function generate(schema: string) {
 
             let declLine = srcLines[declaration.start.line - 1]
             let typeId = crc.str(declLine.slice(0, -1))
-            code.append(generateType(declaration, typeId));
+            code.append(generateConstructor(declaration, typeId));
             code.add()
+
+            let name = normalizeTypeName(declaration.resultType.id.name);
+            if (types.has(name)) {
+                types.get(name)!.push({ declaration, id: typeId });
+            } else {
+                types.set(name, [{ declaration, id: typeId }]);
+            }
 
         } else if (declaration.type === 'BuiltinCombinatorDeclaration') {
             continue; // Ignores built in aliases
@@ -194,6 +251,26 @@ export function generate(schema: string) {
             throw Error('Unknown declaration: ' + declaration.type);
         }
     }
+
+    // Process types
+    for (let tp of types) {
+        code.append(generateType(tp[0], tp[1]));
+    }
+
+    // Process functions
+    for (let declaration of src.functions.declarations) {
+        if (declaration.type === 'CombinatorDeclaration') {
+            let declLine = srcLines[declaration.start.line - 1]
+            let typeId = crc.str(declLine.slice(0, -1))
+            code.append(generateConstructor(declaration, typeId));
+            code.add();
+        } else {
+            throw Error('Unknown declaration: ' + declaration.type);
+        }
+    }
+
+    // Generatae function definitions
+    // TODO: Implement
 
     return code.render();
 }

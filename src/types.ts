@@ -10,9 +10,9 @@ export type TLString = string;
 export type TLInt256 = Buffer;
 export type TLInt128 = Buffer;
 
-export abstract class TLType {
-    static typeId: number;
-    static decode: (decoder: TLReadBuffer) => TLType;
+export abstract class TLConstructor {
+    static readonly typeId: number;
+    static decode: (decoder: TLReadBuffer) => TLConstructor;
 
     abstract getId: () => number;
     abstract encode: (encoder: TLWriteBuffer) => void;
