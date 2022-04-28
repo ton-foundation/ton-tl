@@ -80,6 +80,13 @@ export class TLReadBuffer {
         return this.readUInt8() != 0;
     }
 
+    readObject() {
+        let len = this.#buf.length - this.#offset;
+        let buff = this.#buf.slice(this.#offset, this.#offset + len);
+        this.#offset += len;
+        return buff;
+    }
+
     readConstructor<T extends { typeId: number, new(...args: any[]): InstanceType<T>, decode: (decoder: TLReadBuffer) => InstanceType<T> }>(type: T) {
         return type.decode(this);
     }

@@ -15,12 +15,6 @@ const BUILT_IN = [
     'int256'
 ];
 
-function isTypeName(name: string) {
-    let p = name.split('.');
-    let s = p[p.length - 1][0];
-    return s >= 'A' && s <= 'Z';
-}
-
 function normalizeTypeName(name: string) {
     return name.replaceAll('.', '_');
 }
@@ -62,27 +56,27 @@ function getTypeName(id: ETypeIdentifier) {
 
 function getEncoderFnForType(id: OptionalVariableIdentifier, type: ETypeIdentifier) {
     if (type.id.name === 'string') {
-        return `encoder.writeString(this.${normalizeFieldName(id.name)})`;
+        return `encoder.writeString(src.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'int256') {
-        return `encoder.writeInt256(this.${normalizeFieldName(id.name)})`;
+        return `encoder.writeInt256(src.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'int') {
-        return `encoder.writeInt32(this.${normalizeFieldName(id.name)})`;
+        return `encoder.writeInt32(src.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'bytes') {
-        return `encoder.writeBuffer(this.${normalizeFieldName(id.name)})`;
+        return `encoder.writeBuffer(src.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'long') {
-        return `encoder.writeInt64(this.${normalizeFieldName(id.name)})`;
+        return `encoder.writeInt64(src.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === '#') {
-        return `encoder.writeUInt32(this.${normalizeFieldName(id.name)})`;
+        return `encoder.writeUInt32(src.${normalizeFieldName(id.name)})`;
     }
     if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
-        return `encoder.writeBool(this.${normalizeFieldName(id.name)})`;
+        return `encoder.writeBool(src.${normalizeFieldName(id.name)})`;
     }
-    return `encoder.writeConstructor(this.${normalizeFieldName(id.name)})`;
+    return `Codecs.${normalizeTypeName(type.id.name)}.encode(src.${normalizeFieldName(id.name)}, encoder)`;
 }
 
 function getDecoderFnForType(id: OptionalVariableIdentifier, type: ETypeIdentifier) {
@@ -107,79 +101,78 @@ function getDecoderFnForType(id: OptionalVariableIdentifier, type: ETypeIdentifi
     if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
         return `decoder.readBool()`
     }
-    if (isTypeName(type.id.name)) {
-        return `read_${normalizeTypeName(type.id.name)}(decoder)`;
-    } else {
-        return `decoder.readConstructor(${normalizeTypeName(type.id.name)})`
-    }
+    return `Codecs.${normalizeTypeName(type.id.name)}.decode(decoder)`;
 }
 
 function generateConstructor(decl: CombinatorDeclaration, typeId: number) {
     let code = new CodeBuilder()
-    code.add(`export class ${normalizeTypeName(decl.id.name)} extends TLConstructor {`)
+    code.add(`export interface ${normalizeTypeName(decl.id.name)} {`);
     code.inTab(() => {
-        code.add(`static typeId = ${typeId};`)
-        code.add();
-
-        //
-        // Constructor
-        //
-
-        let fields: string[] = []
+        code.add(`readonly kind: '${decl.id.name}';`);
         for (let field of decl.args) {
             if (field.argType.expression.type !== 'ETypeIdentifier') {
                 continue
             }
             let optional = !!field.conditionalDef;
             if (optional) {
-                fields.push(`public ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)} | null`);
+                code.add(`readonly ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)} | null;`);
             } else {
-                fields.push(`public ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)}`);
+                code.add(`readonly ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)};`);
             }
         }
+    });
+    code.add('}');
+    return code;
+}
 
-        code.add(`constructor(${fields.join(', ')}) {`);
+function generateFunction(constructor: CombinatorDeclaration) {
+    let code = new CodeBuilder();
+
+    code.add(`${normalizeTypeName(constructor.id.name)}: {`);
+    code.inTab(() => {
+        code.add(`encodeRequest: (src: ${normalizeTypeName(constructor.id.name)}, encoder: TLWriteBuffer) => Codecs.${normalizeTypeName(constructor.id.name)}.encode(src, encoder),`);
+        if (constructor.resultType.id.name === 'Object') {
+            code.add(`decodeResponse: (decoder: TLReadBuffer) => decoder.readObject()`);
+        } else {
+            code.add(`decodeResponse: (decoder: TLReadBuffer) => Codecs.${normalizeTypeName(constructor.resultType.id.name)}.decode(decoder)`);
+        }
+    });
+    if (constructor.resultType.id.name === 'Object') {
+        code.add(`} as TLFunction<${normalizeTypeName(constructor.id.name)}, TLBytes>,`);
+    } else {
+        code.add(`} as TLFunction<${normalizeTypeName(constructor.id.name)}, ${normalizeTypeName(constructor.resultType.id.name)}>,`);
+    }
+    return code;
+}
+
+function generateType(name: string, constructors: { declaration: CombinatorDeclaration, id: number }[]) {
+    let code = new CodeBuilder();
+    code.add(`export type ${name} = ${constructors.map((v) => normalizeTypeName(v.declaration.id.name)).join(' | ')};`);
+    return code;
+}
+
+function generateConstructorCodec(constructor: CombinatorDeclaration) {
+    let code = new CodeBuilder();
+    code.add(`${normalizeTypeName(constructor.id.name)}: {`);
+    code.inTab(() => {
+        code.add(`encode: (src: ${normalizeTypeName(constructor.id.name)}, encoder: TLWriteBuffer) => {`);
         code.inTab(() => {
-            code.add('super();');
-        });
-        code.add('}');
-        code.add();
-
-        //
-        // ID
-        //
-
-        code.add(`getId = () => ${typeId};`);
-        code.add();
-
-        //
-        // Encoder
-        //
-
-        code.add(`encode = (encoder: TLWriteBuffer) => {`);
-        code.inTab(() => {
-            for (let field of decl.args) {
+            for (let field of constructor.args) {
                 if (field.argType.expression.type !== 'ETypeIdentifier') {
                     continue;
                 }
                 if (field.conditionalDef) {
-                    code.add(`(this.${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) && !!this.${normalizeFieldName(field.id.name)} && ${getEncoderFnForType(field.id, field.argType.expression)};`);
+                    code.add(`(src.${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) && !!src.${normalizeFieldName(field.id.name)} && ${getEncoderFnForType(field.id, field.argType.expression)};`);
                 } else {
                     code.add(getEncoderFnForType(field.id, field.argType.expression) + ';');
                 }
             }
         });
-        code.add('}');
-
-        //
-        // Decoder
-        //
-
-        code.add();
-        code.add('static decode = (decoder: TLReadBuffer) => {');
+        code.add('},');
+        code.add(`decode: (decoder: TLReadBuffer): ${normalizeTypeName(constructor.id.name)} => {`);
         code.inTab(() => {
             let fs: string[] = [];
-            for (let field of decl.args) {
+            for (let field of constructor.args) {
                 if (field.argType.expression.type !== 'ETypeIdentifier') {
                     continue
                 }
@@ -190,27 +183,47 @@ function generateConstructor(decl: CombinatorDeclaration, typeId: number) {
                     code.add(`let ${normalizeFieldName(field.id.name)} = ` + getDecoderFnForType(field.id, field.argType.expression) + ';');
                 }
             }
-            code.add(`return new ${normalizeTypeName(decl.id.name)}(${fs.join(', ')})`);
-        })
-        code.add('}');
-
+            code.add(`return { kind: '${constructor.id.name}', ${fs.join(', ')} };`);
+        });
+        code.add('},');
     });
-    code.add('}')
+    code.add(`} as TLCodec<${normalizeTypeName(constructor.id.name)}>,`);
     return code;
 }
 
-function generateType(name: string, constructors: { declaration: CombinatorDeclaration, id: number }[]) {
+function generateTypeCodec(name: string, constructors: { declaration: CombinatorDeclaration, id: number }[]) {
     let code = new CodeBuilder();
-    code.add(`export type ${name} = ${constructors.map((v) => normalizeTypeName(v.declaration.id.name)).join(' | ')};`);
-    code.add(`const read_${normalizeTypeName(name)} = (reader: TLReadBuffer): ${name} => {`);
+    code.add(`${normalizeTypeName(name)}: {`);
     code.inTab(() => {
-        code.add(`const id = reader.readInt32();`);
-        for (let t of constructors) {
-            code.add(`if (id == ${t.id}) return reader.readConstructor(${normalizeTypeName(t.declaration.id.name)});`);
-        }
-        code.add(`throw Error('Unknown type: ' + id);`);
+        code.add(`encode: (src: ${normalizeTypeName(name)}, encoder: TLWriteBuffer) => {`);
+        code.inTab(() => {
+            code.add(`const kind = src.kind;`);
+            for (let t of constructors) {
+                code.add(`if (kind === '${t.declaration.id.name}') {`);
+                code.inTab(() => {
+                    code.add(`encoder.writeInt32(${t.id});`);
+                    code.add(`Codecs.${normalizeTypeName(t.declaration.id.name)}.encode(src, encoder);`);
+                });
+                code.add('}');
+            }
+            code.add(`throw Error('Unknown type: ' + kind);`);
+        });
+        code.add('},');
+        code.add(`decode: (decoder: TLReadBuffer): ${normalizeTypeName(name)} => {`);
+        code.inTab(() => {
+            code.add(`const kind = decoder.readInt32();`);
+            for (let t of constructors) {
+                code.add(`if (kind === ${t.id}) {`);
+                code.inTab(() => {
+                    code.add(`return Codecs.${normalizeTypeName(t.declaration.id.name)}.decode(decoder);`);
+                });
+                code.add('}');
+            }
+            code.add(`throw Error('Unknown type: ' + kind);`);
+        });
+        code.add('},');
     });
-    code.add('}');
+    code.add(`} as TLCodec<${normalizeTypeName(name)}>,`);
     return code;
 }
 
@@ -222,10 +235,16 @@ export function generate(schema: string) {
 
     // Header
     let code = new CodeBuilder();
-    code.add('import { TLWriteBuffer, TLReadBuffer, TLConstructor, TLFlag, TLInt, TLString, TLLong, TLInt256, TLInt128, TLBytes, TLBool } from "ton-tl";');
+    code.add('import { TLWriteBuffer, TLReadBuffer, TLFlag, TLInt, TLString, TLLong, TLInt256, TLInt128, TLBytes, TLBool, TLCodec, TLFunction } from "..";');
     code.add();
 
     // Process declaration
+
+    code.add('//');
+    code.add('// Constructors');
+    code.add('//');
+    code.add();
+
     let types = new Map<string, { declaration: CombinatorDeclaration, id: number }[]>();
     for (let declaration of src.constructors.declarations) {
         if (declaration.type === 'CombinatorDeclaration') {
@@ -236,7 +255,6 @@ export function generate(schema: string) {
             let declLine = srcLines[declaration.start.line - 1]
             let typeId = crc.str(declLine.slice(0, -1))
             code.append(generateConstructor(declaration, typeId));
-            code.add()
 
             let name = normalizeTypeName(declaration.resultType.id.name);
             if (types.has(name)) {
@@ -252,10 +270,19 @@ export function generate(schema: string) {
         }
     }
 
-    // Process types
+    code.add('//');
+    code.add('// Types');
+    code.add('//');
+    code.add();
+
     for (let tp of types) {
         code.append(generateType(tp[0], tp[1]));
     }
+
+    code.add('//');
+    code.add('// Functions');
+    code.add('//');
+    code.add();
 
     // Process functions
     for (let declaration of src.functions.declarations) {
@@ -263,14 +290,45 @@ export function generate(schema: string) {
             let declLine = srcLines[declaration.start.line - 1]
             let typeId = crc.str(declLine.slice(0, -1))
             code.append(generateConstructor(declaration, typeId));
-            code.add();
         } else {
             throw Error('Unknown declaration: ' + declaration.type);
         }
     }
 
-    // Generatae function definitions
-    // TODO: Implement
+    code.add();
+    code.add('export const Functions = {');
+    code.inTab(() => {
+        for (let declaration of src.functions.declarations) {
+            if (declaration.type === 'CombinatorDeclaration') {
+                code.append(generateFunction(declaration));
+            } else {
+                throw Error('Unknown declaration: ' + declaration.type);
+            }
+        }
+    });
+    code.add('};');
+
+    code.add('//');
+    code.add('// Codecs');
+    code.add('//');
+    code.add();
+    code.add('export const Codecs = {');
+    code.inTab(() => {
+        for (let tp of types) {
+            for (let t of tp[1]) {
+                code.append(generateConstructorCodec(t.declaration));
+            }
+        }
+        for (let declaration of src.functions.declarations) {
+            if (declaration.type === 'CombinatorDeclaration') {
+                code.append(generateConstructorCodec(declaration));
+            }
+        }
+        for (let tp of types) {
+            code.append(generateTypeCodec(tp[0], tp[1]));
+        }
+    });
+    code.add('};');
 
     return code.render();
 }
