@@ -235,7 +235,7 @@ export function generate(schema: string) {
 
     // Header
     let code = new CodeBuilder();
-    code.add('import { TLWriteBuffer, TLReadBuffer, TLFlag, TLInt, TLString, TLLong, TLInt256, TLInt128, TLBytes, TLBool, TLCodec, TLFunction } from "..";');
+    code.add('import { TLWriteBuffer, TLReadBuffer, TLFlag, TLInt, TLString, TLLong, TLInt256, TLInt128, TLBytes, TLBool, TLCodec, TLFunction } from "ton-tl";');
     code.add();
 
     // Process declaration
