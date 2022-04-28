@@ -97,6 +97,13 @@ export class TLWriteBuffer {
         }
     }
 
+    writeVector<T>(codec: (src: T, writer: TLWriteBuffer) => void, data: T[]) {
+        this.writeUInt32(data.length);
+        for (let d of data) {
+            codec(d, this);
+        }
+    }
+
     build() {
         return this.#buf.slice(0, this.#used);
     }

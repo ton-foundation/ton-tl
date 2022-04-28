@@ -1,4 +1,4 @@
-import { CombinatorDeclaration, ETypeIdentifier, OptionalVariableIdentifier } from "../parser/ast";
+import { CombinatorDeclaration, ETypeIdentifier, Expression, OptionalVariableIdentifier } from "../parser/ast";
 import { parseSchema } from "../parser/parseSchema";
 import { CodeBuilder } from "./CodeBuilder";
 import * as crc from "crc-32";
@@ -60,54 +60,95 @@ function getTypeName(id: ETypeIdentifier) {
     return normalizeTypeName(id.id.name)
 }
 
-function getEncoderFnForType(id: OptionalVariableIdentifier, type: ETypeIdentifier) {
-    if (type.id.name === 'string') {
-        return `encoder.writeString(src.${normalizeFieldName(id.name)})`;
+function getEncoderFnForType(id: OptionalVariableIdentifier, type: Expression) {
+    if (type.type === 'ETypeIdentifier') {
+        if (type.id.name === 'string') {
+            return `encoder.writeString(src.${normalizeFieldName(id.name)})`;
+        }
+        if (type.id.name === 'int256') {
+            return `encoder.writeInt256(src.${normalizeFieldName(id.name)})`;
+        }
+        if (type.id.name === 'int') {
+            return `encoder.writeInt32(src.${normalizeFieldName(id.name)})`;
+        }
+        if (type.id.name === 'bytes') {
+            return `encoder.writeBuffer(src.${normalizeFieldName(id.name)})`;
+        }
+        if (type.id.name === 'long') {
+            return `encoder.writeInt64(src.${normalizeFieldName(id.name)})`;
+        }
+        if (type.id.name === '#') {
+            return `encoder.writeUInt32(src.${normalizeFieldName(id.name)})`;
+        }
+        if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
+            return `encoder.writeBool(src.${normalizeFieldName(id.name)})`;
+        }
+        return `Codecs.${normalizeTypeName(type.id.name)}.encode(src.${normalizeFieldName(id.name)}, encoder)`;
+    } else if (type.type === 'EExpression') {
+        if (type.subexpressions.length !== 2) {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[0].type !== 'ETypeIdentifier') {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[1].type !== 'ETypeIdentifier') {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[0].id.name !== 'vector') {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[1].id.name === 'int') {
+            return `encoder.writeVector((s, d) => d.writeInt32(s), src.${normalizeFieldName(id.name)})`;
+        } else {
+            return `encoder.writeVector(Codecs.${getTypeName(type.subexpressions[1])}.encode, src.${normalizeFieldName(id.name)})`;
+        }
+
     }
-    if (type.id.name === 'int256') {
-        return `encoder.writeInt256(src.${normalizeFieldName(id.name)})`;
-    }
-    if (type.id.name === 'int') {
-        return `encoder.writeInt32(src.${normalizeFieldName(id.name)})`;
-    }
-    if (type.id.name === 'bytes') {
-        return `encoder.writeBuffer(src.${normalizeFieldName(id.name)})`;
-    }
-    if (type.id.name === 'long') {
-        return `encoder.writeInt64(src.${normalizeFieldName(id.name)})`;
-    }
-    if (type.id.name === '#') {
-        return `encoder.writeUInt32(src.${normalizeFieldName(id.name)})`;
-    }
-    if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
-        return `encoder.writeBool(src.${normalizeFieldName(id.name)})`;
-    }
-    return `Codecs.${normalizeTypeName(type.id.name)}.encode(src.${normalizeFieldName(id.name)}, encoder)`;
 }
 
-function getDecoderFnForType(id: OptionalVariableIdentifier, type: ETypeIdentifier) {
-    if (type.id.name === 'string') {
-        return `decoder.readString()`
+function getDecoderFnForType(id: OptionalVariableIdentifier, type: Expression) {
+    if (type.type === 'ETypeIdentifier') {
+        if (type.id.name === 'string') {
+            return `decoder.readString()`
+        }
+        if (type.id.name === 'int256') {
+            return `decoder.readInt256()`
+        }
+        if (type.id.name === 'int') {
+            return `decoder.readInt32()`
+        }
+        if (type.id.name === 'bytes') {
+            return `decoder.readBuffer()`
+        }
+        if (type.id.name === 'long') {
+            return `decoder.readInt64()`
+        }
+        if (type.id.name === '#') {
+            return `decoder.readUInt32()`
+        }
+        if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
+            return `decoder.readBool()`
+        }
+        return `Codecs.${normalizeTypeName(type.id.name)}.decode(decoder)`;
+    } else if (type.type === 'EExpression') {
+        if (type.subexpressions.length !== 2) {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[0].type !== 'ETypeIdentifier') {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[1].type !== 'ETypeIdentifier') {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[0].id.name !== 'vector') {
+            throw Error('Unsupported');
+        }
+        if (type.subexpressions[1].id.name === 'int') {
+            return `decoder.readVector((d) => d.readInt32())`;
+        } else {
+            return `decoder.readVector(Codecs.${getTypeName(type.subexpressions[1])}.decode)`;
+        }
     }
-    if (type.id.name === 'int256') {
-        return `decoder.readInt256()`
-    }
-    if (type.id.name === 'int') {
-        return `decoder.readInt32()`
-    }
-    if (type.id.name === 'bytes') {
-        return `decoder.readBuffer()`
-    }
-    if (type.id.name === 'long') {
-        return `decoder.readInt64()`
-    }
-    if (type.id.name === '#') {
-        return `decoder.readUInt32()`
-    }
-    if (type.id.name === 'Bool' || type.id.name === 'true' || type.id.name === 'false') {
-        return `decoder.readBool()`
-    }
-    return `Codecs.${normalizeTypeName(type.id.name)}.decode(decoder)`;
 }
 
 function generateConstructor(decl: CombinatorDeclaration, typeId: number) {
@@ -116,14 +157,28 @@ function generateConstructor(decl: CombinatorDeclaration, typeId: number) {
     code.inTab(() => {
         code.add(`readonly kind: '${decl.id.name}';`);
         for (let field of decl.args) {
-            if (field.argType.expression.type !== 'ETypeIdentifier') {
-                continue
-            }
-            let optional = !!field.conditionalDef;
-            if (optional) {
-                code.add(`readonly ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)} | null;`);
-            } else {
-                code.add(`readonly ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)};`);
+            if (field.argType.expression.type === 'ETypeIdentifier') {
+
+                let optional = !!field.conditionalDef;
+                if (optional) {
+                    code.add(`readonly ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)} | null;`);
+                } else {
+                    code.add(`readonly ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression)};`);
+                }
+            } else if (field.argType.expression.type === 'EExpression') {
+                if (field.argType.expression.subexpressions.length !== 2) {
+                    throw Error('Unsupported');
+                }
+                if (field.argType.expression.subexpressions[0].type !== 'ETypeIdentifier') {
+                    throw Error('Unsupported');
+                }
+                if (field.argType.expression.subexpressions[1].type !== 'ETypeIdentifier') {
+                    throw Error('Unsupported');
+                }
+                if (field.argType.expression.subexpressions[0].id.name !== 'vector') {
+                    throw Error('Unsupported');
+                }
+                code.add(`readonly ${normalizeFieldName(field.id.name)}: ${getTypeName(field.argType.expression.subexpressions[1])}[];`);
             }
         }
     });
@@ -164,10 +219,6 @@ function generateConstructorCodec(constructor: CombinatorDeclaration) {
         code.add(`encode: (src: ${normalizeTypeName(constructor.id.name)}, encoder: TLWriteBuffer) => {`);
         code.inTab(() => {
             for (let field of constructor.args) {
-                if (field.argType.expression.type !== 'ETypeIdentifier') {
-                    console.warn(field.argType.expression);
-                    continue;
-                }
                 if (field.conditionalDef) {
                     code.add(`(src.${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) && !!src.${normalizeFieldName(field.id.name)} && ${getEncoderFnForType(field.id, field.argType.expression)};`);
                 } else {
@@ -180,10 +231,6 @@ function generateConstructorCodec(constructor: CombinatorDeclaration) {
         code.inTab(() => {
             let fs: string[] = [];
             for (let field of constructor.args) {
-                if (field.argType.expression.type !== 'ETypeIdentifier') {
-                    console.warn(field.argType.expression);
-                    continue
-                }
                 fs.push(normalizeFieldName(field.id.name));
                 if (field.conditionalDef) {
                     code.add(`let ${normalizeFieldName(field.id.name)} = (${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) ? ` + getDecoderFnForType(field.id, field.argType.expression) + ' : null;');

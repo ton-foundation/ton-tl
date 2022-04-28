@@ -156,6 +156,7 @@ export interface liteServer_transactionInfo {
 
 export interface liteServer_transactionList {
     readonly kind: 'liteServer.transactionList';
+    readonly ids: tonNode_blockIdExt[];
     readonly transactions: TLBytes;
 }
 
@@ -178,6 +179,7 @@ export interface liteServer_blockTransactions {
     readonly id: tonNode_blockIdExt;
     readonly reqCount: TLFlag;
     readonly incomplete: TLBool;
+    readonly ids: liteServer_transactionId[];
     readonly proof: TLBytes;
 }
 
@@ -191,6 +193,7 @@ export interface liteServer_signatureSet {
     readonly kind: 'liteServer.signatureSet';
     readonly validatorSetHash: TLInt;
     readonly catchainSeqno: TLInt;
+    readonly signatures: liteServer_signature[];
 }
 
 export interface liteServer_blockLinkBack {
@@ -218,6 +221,7 @@ export interface liteServer_partialBlockProof {
     readonly complete: TLBool;
     readonly from: tonNode_blockIdExt;
     readonly to: tonNode_blockIdExt;
+    readonly steps: liteServer_BlockLink[];
 }
 
 export interface liteServer_configInfo {
@@ -427,6 +431,7 @@ export interface liteServer_getConfigParams {
     readonly kind: 'liteServer.getConfigParams';
     readonly mode: TLFlag;
     readonly id: tonNode_blockIdExt;
+    readonly paramList: TLInt[];
 }
 
 export interface liteServer_getValidatorStats {
@@ -878,11 +883,13 @@ export const Codecs = {
 
     liteServer_transactionList: {
         encode: (src: liteServer_transactionList, encoder: TLWriteBuffer) => {
+            encoder.writeVector(Codecs.tonNode_blockIdExt.encode, src.ids);
             encoder.writeBuffer(src.transactions);
         },
         decode: (decoder: TLReadBuffer): liteServer_transactionList => {
+            let ids = decoder.readVector(Codecs.tonNode_blockIdExt.decode);
             let transactions = decoder.readBuffer();
-            return { kind: 'liteServer.transactionList', transactions };
+            return { kind: 'liteServer.transactionList', ids, transactions };
         },
     } as TLCodec<liteServer_transactionList>,
 
@@ -919,14 +926,16 @@ export const Codecs = {
             Codecs.tonNode_blockIdExt.encode(src.id, encoder);
             encoder.writeUInt32(src.reqCount);
             encoder.writeBool(src.incomplete);
+            encoder.writeVector(Codecs.liteServer_transactionId.encode, src.ids);
             encoder.writeBuffer(src.proof);
         },
         decode: (decoder: TLReadBuffer): liteServer_blockTransactions => {
             let id = Codecs.tonNode_blockIdExt.decode(decoder);
             let reqCount = decoder.readUInt32();
             let incomplete = decoder.readBool();
+            let ids = decoder.readVector(Codecs.liteServer_transactionId.decode);
             let proof = decoder.readBuffer();
-            return { kind: 'liteServer.blockTransactions', id, reqCount, incomplete, proof };
+            return { kind: 'liteServer.blockTransactions', id, reqCount, incomplete, ids, proof };
         },
     } as TLCodec<liteServer_blockTransactions>,
 
@@ -946,11 +955,13 @@ export const Codecs = {
         encode: (src: liteServer_signatureSet, encoder: TLWriteBuffer) => {
             encoder.writeInt32(src.validatorSetHash);
             encoder.writeInt32(src.catchainSeqno);
+            encoder.writeVector(Codecs.liteServer_signature.encode, src.signatures);
         },
         decode: (decoder: TLReadBuffer): liteServer_signatureSet => {
             let validatorSetHash = decoder.readInt32();
             let catchainSeqno = decoder.readInt32();
-            return { kind: 'liteServer.signatureSet', validatorSetHash, catchainSeqno };
+            let signatures = decoder.readVector(Codecs.liteServer_signature.decode);
+            return { kind: 'liteServer.signatureSet', validatorSetHash, catchainSeqno, signatures };
         },
     } as TLCodec<liteServer_signatureSet>,
 
@@ -999,12 +1010,14 @@ export const Codecs = {
             encoder.writeBool(src.complete);
             Codecs.tonNode_blockIdExt.encode(src.from, encoder);
             Codecs.tonNode_blockIdExt.encode(src.to, encoder);
+            encoder.writeVector(Codecs.liteServer_BlockLink.encode, src.steps);
         },
         decode: (decoder: TLReadBuffer): liteServer_partialBlockProof => {
             let complete = decoder.readBool();
             let from = Codecs.tonNode_blockIdExt.decode(decoder);
             let to = Codecs.tonNode_blockIdExt.decode(decoder);
-            return { kind: 'liteServer.partialBlockProof', complete, from, to };
+            let steps = decoder.readVector(Codecs.liteServer_BlockLink.decode);
+            return { kind: 'liteServer.partialBlockProof', complete, from, to, steps };
         },
     } as TLCodec<liteServer_partialBlockProof>,
 
@@ -1282,11 +1295,13 @@ export const Codecs = {
         encode: (src: liteServer_getConfigParams, encoder: TLWriteBuffer) => {
             encoder.writeUInt32(src.mode);
             Codecs.tonNode_blockIdExt.encode(src.id, encoder);
+            encoder.writeVector((s, d) => d.writeInt32(s), src.paramList);
         },
         decode: (decoder: TLReadBuffer): liteServer_getConfigParams => {
             let mode = decoder.readUInt32();
             let id = Codecs.tonNode_blockIdExt.decode(decoder);
-            return { kind: 'liteServer.getConfigParams', mode, id };
+            let paramList = decoder.readVector((d) => d.readInt32());
+            return { kind: 'liteServer.getConfigParams', mode, id, paramList };
         },
     } as TLCodec<liteServer_getConfigParams>,
 

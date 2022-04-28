@@ -97,6 +97,15 @@ export class TLReadBuffer {
         throw Error('Unknown boolean value');
     }
 
+    readVector<T>(codec: (src: TLReadBuffer) => T) {
+        let count = this.readUInt32();
+        let res: T[] = [];
+        for (let i = 0; i < count; i++) {
+            res.push(codec(this));
+        }
+        return res;
+    }
+
     readObject() {
         let len = this.#buf.length - this.#offset;
         let buff = this.#buf.slice(this.#offset, this.#offset + len);
