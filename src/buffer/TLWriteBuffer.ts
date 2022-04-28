@@ -1,5 +1,4 @@
 import { BN } from "bn.js";
-import { TLConstructor } from "../types";
 
 export class TLWriteBuffer {
     #used = 0
@@ -82,10 +81,6 @@ export class TLWriteBuffer {
         } else {
             this.writeUInt8(0);
         }
-    }
-
-    writeConstructor(type: TLConstructor) {
-        type.encode(this);
     }
 
     build() {

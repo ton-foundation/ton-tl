@@ -86,8 +86,4 @@ export class TLReadBuffer {
         this.#offset += len;
         return buff;
     }
-
-    readConstructor<T extends { typeId: number, new(...args: any[]): InstanceType<T>, decode: (decoder: TLReadBuffer) => InstanceType<T> }>(type: T) {
-        return type.decode(this);
-    }
 }

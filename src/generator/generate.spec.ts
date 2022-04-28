@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import { parseSchema } from "../parser/parseSchema";
 import { generate } from './generate';
 
 describe('generate', () => {
