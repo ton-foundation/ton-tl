@@ -91,9 +91,9 @@ export class TLWriteBuffer {
 
     writeBool(src: boolean) {
         if (src) {
-            this.writeUInt8(1);
+            this.writeUInt32(0x997275b5);
         } else {
-            this.writeUInt8(0);
+            this.writeUInt32(0xbc799737);
         }
     }
 

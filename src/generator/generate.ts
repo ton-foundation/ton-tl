@@ -21,6 +21,12 @@ function normalizeTypeName(name: string) {
 function normalizeFieldName(name: string) {
     return snakeToCamel(name);
 }
+function getTypeId(src: string) {
+    return crc.str(src
+        .replaceAll('(', '')
+        .replaceAll(')', '')
+    );
+}
 
 function getTypeName(id: ETypeIdentifier) {
     if (id.id.name === 'string') {
@@ -159,6 +165,7 @@ function generateConstructorCodec(constructor: CombinatorDeclaration) {
         code.inTab(() => {
             for (let field of constructor.args) {
                 if (field.argType.expression.type !== 'ETypeIdentifier') {
+                    console.warn(field.argType.expression);
                     continue;
                 }
                 if (field.conditionalDef) {
@@ -174,6 +181,7 @@ function generateConstructorCodec(constructor: CombinatorDeclaration) {
             let fs: string[] = [];
             for (let field of constructor.args) {
                 if (field.argType.expression.type !== 'ETypeIdentifier') {
+                    console.warn(field.argType.expression);
                     continue
                 }
                 fs.push(normalizeFieldName(field.id.name));
@@ -254,7 +262,7 @@ export function generate(schema: string) {
             }
 
             let declLine = srcLines[declaration.start.line - 1]
-            let typeId = crc.str(declLine.slice(0, -1))
+            let typeId = getTypeId(declLine.slice(0, -1))
             code.append(generateConstructor(declaration, typeId));
 
             let name = normalizeTypeName(declaration.resultType.id.name);
@@ -289,7 +297,7 @@ export function generate(schema: string) {
     for (let declaration of src.functions.declarations) {
         if (declaration.type === 'CombinatorDeclaration') {
             let declLine = srcLines[declaration.start.line - 1]
-            let typeId = crc.str(declLine.slice(0, -1))
+            let typeId = getTypeId(declLine.slice(0, -1))
             code.append(generateConstructor(declaration, typeId));
         } else {
             throw Error('Unknown declaration: ' + declaration.type);
@@ -302,7 +310,7 @@ export function generate(schema: string) {
         for (let declaration of src.functions.declarations) {
             if (declaration.type === 'CombinatorDeclaration') {
                 let declLine = srcLines[declaration.start.line - 1]
-                let typeId = crc.str(declLine.slice(0, -1))
+                let typeId = getTypeId(declLine.slice(0, -1))
                 code.append(generateFunction(declaration, typeId));
             } else {
                 throw Error('Unknown declaration: ' + declaration.type);

@@ -87,7 +87,14 @@ export class TLReadBuffer {
     }
 
     readBool() {
-        return this.readUInt8() != 0;
+        let v = this.readUInt32();
+        if (v === 0xbc799737) {
+            return false;
+        }
+        if (v === 0x997275b5) {
+            return true;
+        }
+        throw Error('Unknown boolean value');
     }
 
     readObject() {
