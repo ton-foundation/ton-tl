@@ -814,25 +814,25 @@ export const Codecs = {
             encoder.writeUInt32(src.mode);
             Codecs.tonNode_blockIdExt.encode(src.id, encoder);
             Codecs.tonNode_blockIdExt.encode(src.shardblk, encoder);
-            (src.mode && (1 << 0)) && !!src.shardProof && encoder.writeBuffer(src.shardProof);
-            (src.mode && (1 << 0)) && !!src.proof && encoder.writeBuffer(src.proof);
-            (src.mode && (1 << 1)) && !!src.stateProof && encoder.writeBuffer(src.stateProof);
-            (src.mode && (1 << 3)) && !!src.initC7 && encoder.writeBuffer(src.initC7);
-            (src.mode && (1 << 4)) && !!src.libExtras && encoder.writeBuffer(src.libExtras);
+            (src.mode & (1 << 0)) && !!src.shardProof && encoder.writeBuffer(src.shardProof);
+            (src.mode & (1 << 0)) && !!src.proof && encoder.writeBuffer(src.proof);
+            (src.mode & (1 << 1)) && !!src.stateProof && encoder.writeBuffer(src.stateProof);
+            (src.mode & (1 << 3)) && !!src.initC7 && encoder.writeBuffer(src.initC7);
+            (src.mode & (1 << 4)) && !!src.libExtras && encoder.writeBuffer(src.libExtras);
             encoder.writeInt32(src.exitCode);
-            (src.mode && (1 << 2)) && !!src.result && encoder.writeBuffer(src.result);
+            (src.mode & (1 << 2)) && !!src.result && encoder.writeBuffer(src.result);
         },
         decode: (decoder: TLReadBuffer): liteServer_runMethodResult => {
             let mode = decoder.readUInt32();
             let id = Codecs.tonNode_blockIdExt.decode(decoder);
             let shardblk = Codecs.tonNode_blockIdExt.decode(decoder);
-            let shardProof = (mode && (1 << 0)) ? decoder.readBuffer() : null;
-            let proof = (mode && (1 << 0)) ? decoder.readBuffer() : null;
-            let stateProof = (mode && (1 << 1)) ? decoder.readBuffer() : null;
-            let initC7 = (mode && (1 << 3)) ? decoder.readBuffer() : null;
-            let libExtras = (mode && (1 << 4)) ? decoder.readBuffer() : null;
+            let shardProof = (mode & (1 << 0)) ? decoder.readBuffer() : null;
+            let proof = (mode & (1 << 0)) ? decoder.readBuffer() : null;
+            let stateProof = (mode & (1 << 1)) ? decoder.readBuffer() : null;
+            let initC7 = (mode & (1 << 3)) ? decoder.readBuffer() : null;
+            let libExtras = (mode & (1 << 4)) ? decoder.readBuffer() : null;
             let exitCode = decoder.readInt32();
-            let result = (mode && (1 << 2)) ? decoder.readBuffer() : null;
+            let result = (mode & (1 << 2)) ? decoder.readBuffer() : null;
             return { kind: 'liteServer.runMethodResult', mode, id, shardblk, shardProof, proof, stateProof, initC7, libExtras, exitCode, result };
         },
     } as TLCodec<liteServer_runMethodResult>,
@@ -896,15 +896,15 @@ export const Codecs = {
     liteServer_transactionId: {
         encode: (src: liteServer_transactionId, encoder: TLWriteBuffer) => {
             encoder.writeUInt32(src.mode);
-            (src.mode && (1 << 0)) && !!src.account && encoder.writeInt256(src.account);
-            (src.mode && (1 << 1)) && !!src.lt && encoder.writeInt64(src.lt);
-            (src.mode && (1 << 2)) && !!src.hash && encoder.writeInt256(src.hash);
+            (src.mode & (1 << 0)) && !!src.account && encoder.writeInt256(src.account);
+            (src.mode & (1 << 1)) && !!src.lt && encoder.writeInt64(src.lt);
+            (src.mode & (1 << 2)) && !!src.hash && encoder.writeInt256(src.hash);
         },
         decode: (decoder: TLReadBuffer): liteServer_transactionId => {
             let mode = decoder.readUInt32();
-            let account = (mode && (1 << 0)) ? decoder.readInt256() : null;
-            let lt = (mode && (1 << 1)) ? decoder.readInt64() : null;
-            let hash = (mode && (1 << 2)) ? decoder.readInt256() : null;
+            let account = (mode & (1 << 0)) ? decoder.readInt256() : null;
+            let lt = (mode & (1 << 1)) ? decoder.readInt64() : null;
+            let hash = (mode & (1 << 2)) ? decoder.readInt256() : null;
             return { kind: 'liteServer.transactionId', mode, account, lt, hash };
         },
     } as TLCodec<liteServer_transactionId>,
@@ -1233,14 +1233,14 @@ export const Codecs = {
         encode: (src: liteServer_lookupBlock, encoder: TLWriteBuffer) => {
             encoder.writeUInt32(src.mode);
             Codecs.tonNode_blockId.encode(src.id, encoder);
-            (src.mode && (1 << 1)) && !!src.lt && encoder.writeInt64(src.lt);
-            (src.mode && (1 << 2)) && !!src.utime && encoder.writeInt32(src.utime);
+            (src.mode & (1 << 1)) && !!src.lt && encoder.writeInt64(src.lt);
+            (src.mode & (1 << 2)) && !!src.utime && encoder.writeInt32(src.utime);
         },
         decode: (decoder: TLReadBuffer): liteServer_lookupBlock => {
             let mode = decoder.readUInt32();
             let id = Codecs.tonNode_blockId.decode(decoder);
-            let lt = (mode && (1 << 1)) ? decoder.readInt64() : null;
-            let utime = (mode && (1 << 2)) ? decoder.readInt32() : null;
+            let lt = (mode & (1 << 1)) ? decoder.readInt64() : null;
+            let utime = (mode & (1 << 2)) ? decoder.readInt32() : null;
             return { kind: 'liteServer.lookupBlock', mode, id, lt, utime };
         },
     } as TLCodec<liteServer_lookupBlock>,
@@ -1250,17 +1250,17 @@ export const Codecs = {
             Codecs.tonNode_blockIdExt.encode(src.id, encoder);
             encoder.writeUInt32(src.mode);
             encoder.writeUInt32(src.count);
-            (src.mode && (1 << 7)) && !!src.after && Codecs.liteServer_transactionId3.encode(src.after, encoder);
-            (src.mode && (1 << 6)) && !!src.reverseOrder && encoder.writeBool(src.reverseOrder);
-            (src.mode && (1 << 5)) && !!src.wantProof && encoder.writeBool(src.wantProof);
+            (src.mode & (1 << 7)) && !!src.after && Codecs.liteServer_transactionId3.encode(src.after, encoder);
+            (src.mode & (1 << 6)) && !!src.reverseOrder && encoder.writeBool(src.reverseOrder);
+            (src.mode & (1 << 5)) && !!src.wantProof && encoder.writeBool(src.wantProof);
         },
         decode: (decoder: TLReadBuffer): liteServer_listBlockTransactions => {
             let id = Codecs.tonNode_blockIdExt.decode(decoder);
             let mode = decoder.readUInt32();
             let count = decoder.readUInt32();
-            let after = (mode && (1 << 7)) ? Codecs.liteServer_transactionId3.decode(decoder) : null;
-            let reverseOrder = (mode && (1 << 6)) ? decoder.readBool() : null;
-            let wantProof = (mode && (1 << 5)) ? decoder.readBool() : null;
+            let after = (mode & (1 << 7)) ? Codecs.liteServer_transactionId3.decode(decoder) : null;
+            let reverseOrder = (mode & (1 << 6)) ? decoder.readBool() : null;
+            let wantProof = (mode & (1 << 5)) ? decoder.readBool() : null;
             return { kind: 'liteServer.listBlockTransactions', id, mode, count, after, reverseOrder, wantProof };
         },
     } as TLCodec<liteServer_listBlockTransactions>,
@@ -1269,12 +1269,12 @@ export const Codecs = {
         encode: (src: liteServer_getBlockProof, encoder: TLWriteBuffer) => {
             encoder.writeUInt32(src.mode);
             Codecs.tonNode_blockIdExt.encode(src.knownBlock, encoder);
-            (src.mode && (1 << 0)) && !!src.targetBlock && Codecs.tonNode_blockIdExt.encode(src.targetBlock, encoder);
+            (src.mode & (1 << 0)) && !!src.targetBlock && Codecs.tonNode_blockIdExt.encode(src.targetBlock, encoder);
         },
         decode: (decoder: TLReadBuffer): liteServer_getBlockProof => {
             let mode = decoder.readUInt32();
             let knownBlock = Codecs.tonNode_blockIdExt.decode(decoder);
-            let targetBlock = (mode && (1 << 0)) ? Codecs.tonNode_blockIdExt.decode(decoder) : null;
+            let targetBlock = (mode & (1 << 0)) ? Codecs.tonNode_blockIdExt.decode(decoder) : null;
             return { kind: 'liteServer.getBlockProof', mode, knownBlock, targetBlock };
         },
     } as TLCodec<liteServer_getBlockProof>,
@@ -1310,15 +1310,15 @@ export const Codecs = {
             encoder.writeUInt32(src.mode);
             Codecs.tonNode_blockIdExt.encode(src.id, encoder);
             encoder.writeInt32(src.limit);
-            (src.mode && (1 << 0)) && !!src.startAfter && encoder.writeInt256(src.startAfter);
-            (src.mode && (1 << 2)) && !!src.modifiedAfter && encoder.writeInt32(src.modifiedAfter);
+            (src.mode & (1 << 0)) && !!src.startAfter && encoder.writeInt256(src.startAfter);
+            (src.mode & (1 << 2)) && !!src.modifiedAfter && encoder.writeInt32(src.modifiedAfter);
         },
         decode: (decoder: TLReadBuffer): liteServer_getValidatorStats => {
             let mode = decoder.readUInt32();
             let id = Codecs.tonNode_blockIdExt.decode(decoder);
             let limit = decoder.readInt32();
-            let startAfter = (mode && (1 << 0)) ? decoder.readInt256() : null;
-            let modifiedAfter = (mode && (1 << 2)) ? decoder.readInt32() : null;
+            let startAfter = (mode & (1 << 0)) ? decoder.readInt256() : null;
+            let modifiedAfter = (mode & (1 << 2)) ? decoder.readInt32() : null;
             return { kind: 'liteServer.getValidatorStats', mode, id, limit, startAfter, modifiedAfter };
         },
     } as TLCodec<liteServer_getValidatorStats>,

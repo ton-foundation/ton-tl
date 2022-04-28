@@ -220,7 +220,7 @@ function generateConstructorCodec(constructor: CombinatorDeclaration) {
         code.inTab(() => {
             for (let field of constructor.args) {
                 if (field.conditionalDef) {
-                    code.add(`(src.${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) && !!src.${normalizeFieldName(field.id.name)} && ${getEncoderFnForType(field.id, field.argType.expression)};`);
+                    code.add(`(src.${field.conditionalDef.id.name} & (1 << ${field.conditionalDef.nat})) && !!src.${normalizeFieldName(field.id.name)} && ${getEncoderFnForType(field.id, field.argType.expression)};`);
                 } else {
                     code.add(getEncoderFnForType(field.id, field.argType.expression) + ';');
                 }
@@ -233,7 +233,7 @@ function generateConstructorCodec(constructor: CombinatorDeclaration) {
             for (let field of constructor.args) {
                 fs.push(normalizeFieldName(field.id.name));
                 if (field.conditionalDef) {
-                    code.add(`let ${normalizeFieldName(field.id.name)} = (${field.conditionalDef.id.name} && (1 << ${field.conditionalDef.nat})) ? ` + getDecoderFnForType(field.id, field.argType.expression) + ' : null;');
+                    code.add(`let ${normalizeFieldName(field.id.name)} = (${field.conditionalDef.id.name} & (1 << ${field.conditionalDef.nat})) ? ` + getDecoderFnForType(field.id, field.argType.expression) + ' : null;');
                 } else {
                     code.add(`let ${normalizeFieldName(field.id.name)} = ` + getDecoderFnForType(field.id, field.argType.expression) + ';');
                 }
