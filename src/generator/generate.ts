@@ -125,12 +125,12 @@ function generateConstructor(decl: CombinatorDeclaration, typeId: number) {
     return code;
 }
 
-function generateFunction(constructor: CombinatorDeclaration) {
+function generateFunction(constructor: CombinatorDeclaration, typeId: number) {
     let code = new CodeBuilder();
 
     code.add(`${normalizeTypeName(constructor.id.name)}: {`);
     code.inTab(() => {
-        code.add(`encodeRequest: (src: ${normalizeTypeName(constructor.id.name)}, encoder: TLWriteBuffer) => Codecs.${normalizeTypeName(constructor.id.name)}.encode(src, encoder),`);
+        code.add(`encodeRequest: (src: ${normalizeTypeName(constructor.id.name)}, encoder: TLWriteBuffer) => { encoder.writeInt32(${typeId}); Codecs.${normalizeTypeName(constructor.id.name)}.encode(src, encoder); },`);
         if (constructor.resultType.id.name === 'Object') {
             code.add(`decodeResponse: (decoder: TLReadBuffer) => decoder.readObject()`);
         } else {
@@ -203,6 +203,7 @@ function generateTypeCodec(name: string, constructors: { declaration: Combinator
                 code.inTab(() => {
                     code.add(`encoder.writeInt32(${t.id});`);
                     code.add(`Codecs.${normalizeTypeName(t.declaration.id.name)}.encode(src, encoder);`);
+                    code.add(`return;`);
                 });
                 code.add('}');
             }
@@ -300,7 +301,9 @@ export function generate(schema: string) {
     code.inTab(() => {
         for (let declaration of src.functions.declarations) {
             if (declaration.type === 'CombinatorDeclaration') {
-                code.append(generateFunction(declaration));
+                let declLine = srcLines[declaration.start.line - 1]
+                let typeId = crc.str(declLine.slice(0, -1))
+                code.append(generateFunction(declaration, typeId));
             } else {
                 throw Error('Unknown declaration: ' + declaration.type);
             }
