@@ -70,8 +70,11 @@ export class TLWriteBuffer {
             this.writeUInt8(buf.byteLength);
             len += 1;
         } else {
-            // this.writeUInt8(254);
-            throw new Error('Not implemented');
+            this.writeUInt8(254);
+            this.#ensureSize(3);
+            this.#buf.writeUintLE(buf.byteLength, this.#used, 3);
+            this.#used += 3;
+            len += 4;
         }
 
         for (let byte of buf) {
