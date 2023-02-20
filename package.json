@@ -1,6 +1,6 @@
 {
   "name": "ton-tl",
-  "version": "0.2.2",
+  "version": "1.0.0",
   "repository": "https://github.com/ton-foundation/ton-tl.git",
   "author": "Steve Korshakov <steve@korshakov.com>",
   "license": "MIT",
@@ -11,7 +11,7 @@
   "scripts": {
     "build": "rm -fr dist && tsc --declaration",
     "test": "jest",
-    "release": "yarn build && yarn test && yarn publish"
+    "release": "yarn build && yarn test && npm publish"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",
