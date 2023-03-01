@@ -107,6 +107,8 @@ function getEncoderFnForType(id: OptionalVariableIdentifier, type: Expression) {
         }
         if (type.subexpressions[1].id.name === 'int') {
             return `encoder.writeVector((s, d) => d.writeInt32(s), src.${normalizeFieldName(id.name)})`;
+        } else if (type.subexpressions[1].id.name === 'int256') {
+            return `encoder.writeVector((s, d) => d.writeInt256(s), src.${normalizeFieldName(id.name)})`;
         } else {
             return `encoder.writeVector(Codecs.${getTypeName(type.subexpressions[1])}.encode, src.${normalizeFieldName(id.name)})`;
         }
@@ -153,6 +155,8 @@ function getDecoderFnForType(id: OptionalVariableIdentifier, type: Expression) {
         }
         if (type.subexpressions[1].id.name === 'int') {
             return `decoder.readVector((d) => d.readInt32())`;
+        } else if (type.subexpressions[1].id.name === 'int256') {
+            return `decoder.readVector((d) => d.readInt256())`;
         } else {
             return `decoder.readVector(Codecs.${getTypeName(type.subexpressions[1])}.decode)`;
         }
@@ -294,7 +298,7 @@ function generateTypeCodec(name: string, constructors: { declaration: Combinator
 export function generate(schema: string) {
 
     // Parse
-    let srcLines = schema.split('\n');
+    let srcLines = schema.split(/\n|\r\n/);
     let src = parseSchema(schema);
 
     // Header
@@ -317,7 +321,7 @@ export function generate(schema: string) {
             }
 
             let declLine = srcLines[declaration.start.line - 1]
-            let typeId = getTypeId(declLine.slice(0, -1))
+            let typeId = getTypeId(declLine.trim().slice(0, -1))
             code.append(generateConstructor(declaration, typeId));
 
             let name = normalizeTypeName(declaration.resultType.id.name);
